@@ -1,18 +1,13 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import { kv } from '@vercel/kv';
 import { scrapeFlipkartPrice } from '@/lib/scraper';
-
-const DB_FILE = path.join(process.cwd(), 'data.json');
 
 export async function GET(request: Request) {
     try {
-        // 1. Read the database
-        let trackedProducts = [];
-        try {
-            const fileContents = await fs.readFile(DB_FILE, 'utf8');
-            trackedProducts = JSON.parse(fileContents);
-        } catch (e) {
+        // 1. Read the database from Vercel KV
+        let trackedProducts: any[] = (await kv.get('trackedProducts')) || [];
+
+        if (trackedProducts.length === 0) {
             return NextResponse.json({ message: "No products in database." });
         }
 
@@ -28,7 +23,7 @@ export async function GET(request: Request) {
 
             if (currentPrice !== null) {
                 databaseNeedsSaving = true;
-
+                
                 // ALWAYS save the current snapshot to the database
                 product.currentPrice = currentPrice;
                 product.lastCheckedDate = new Date().toISOString();
@@ -42,10 +37,10 @@ export async function GET(request: Request) {
                 }
 
                 // --- BUILD THE NOTIFICATION STRING ---
-                const dateText = isNewLow
-                    ? "📢Today is the lowest price"
+                const dateText = isNewLow 
+                    ? "📢Today is the lowest price" 
                     : `${product.lowestPriceDate} was the lowest price`;
-
+                
                 const filterText = currentPrice <= product.targetPrice
                     ? "✅ Also it is smaller than the filter!"
                     : "❌ It is still not smaller than the filter.";
@@ -61,12 +56,10 @@ ${filterText}
                 console.log(notificationMessage);
 
                 // --- SENDING TO TELEGRAM ---
-                // Paste your specific Token and Chat ID here!
-                const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+                const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN; 
                 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
                 const encodedMessage = encodeURIComponent(notificationMessage);
-                // Telegram's official API URL
                 const telegramUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodedMessage}`;
 
                 try {
@@ -80,17 +73,17 @@ ${filterText}
                 } catch (error) {
                     console.log("❌ Error connecting to Telegram.");
                 }
-
+                
                 console.log("-----------------------------------------");
             }
         }
 
-        // 5. If we updated any prices, save the whole array back to the file
+        // 5. Save back to Vercel KV
         if (databaseNeedsSaving) {
-            await fs.writeFile(DB_FILE, JSON.stringify(trackedProducts, null, 2));
+            await kv.set('trackedProducts', trackedProducts);
         }
 
-        return NextResponse.json({ message: "Cron job finished, messages sent, and database updated!" });
+        return NextResponse.json({ message: "Cron job finished, messages sent, and KV database updated!" });
 
     } catch (error) {
         console.error(error);
