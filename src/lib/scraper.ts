@@ -3,8 +3,14 @@ import * as cheerio from 'cheerio';
 
 export async function scrapeFlipkartPrice(url: string) {
     try {
-        // Since we moved Vercel to Mumbai, let's try hitting Flipkart directly again!
-        const { data } = await axios.get(url, {
+        // 1. We must pretend to be a real browser, otherwise Flipkart will block us as a bot!
+        // If we are on Vercel, we MUST use a proxy because Flipkart firewalls AWS IPs.
+        let targetUrl = url;
+        if (process.env.SCRAPER_API_KEY) {
+            targetUrl = `https://api.scraperapi.com/?api_key=${process.env.SCRAPER_API_KEY}&url=${encodeURIComponent(url)}`;
+        }
+
+        const { data } = await axios.get(targetUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
