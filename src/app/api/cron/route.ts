@@ -6,7 +6,7 @@ import { scrapeFlipkartPrice } from '@/lib/scraper';
 let redisClient: ReturnType<typeof createClient> | null = null;
 const getRedis = async () => {
     if (!redisClient) {
-        redisClient = createClient({ url: process.env.KV_URL });
+        redisClient = createClient({ url: process.env.REDIS_URL });
         await redisClient.connect();
     }
     return redisClient;
@@ -15,7 +15,7 @@ const getRedis = async () => {
 export async function GET(request: Request) {
     try {
         const redis = await getRedis();
-        
+
         // 1. Read the database from Redis (we must parse JSON manually with this package)
         const rawData = await redis.get('trackedProducts');
         let trackedProducts: any[] = rawData ? JSON.parse(rawData) : [];
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
             if (currentPrice !== null) {
                 databaseNeedsSaving = true;
-                
+
                 // ALWAYS save the current snapshot to the database
                 product.currentPrice = currentPrice;
                 product.lastCheckedDate = new Date().toISOString();
@@ -50,10 +50,10 @@ export async function GET(request: Request) {
                 }
 
                 // --- BUILD THE NOTIFICATION STRING ---
-                const dateText = isNewLow 
-                    ? "📢Today is the lowest price" 
+                const dateText = isNewLow
+                    ? "📢Today is the lowest price"
                     : `${product.lowestPriceDate} was the lowest price`;
-                
+
                 const filterText = currentPrice <= product.targetPrice
                     ? "✅ Also it is smaller than the filter!"
                     : "❌ It is still not smaller than the filter.";
@@ -69,7 +69,7 @@ ${filterText}
                 console.log(notificationMessage);
 
                 // --- SENDING TO TELEGRAM ---
-                const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN; 
+                const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
                 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
                 const encodedMessage = encodeURIComponent(notificationMessage);
@@ -86,7 +86,7 @@ ${filterText}
                 } catch (error) {
                     console.log("❌ Error connecting to Telegram.");
                 }
-                
+
                 console.log("-----------------------------------------");
             }
         }

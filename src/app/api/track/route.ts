@@ -5,7 +5,7 @@ import { createClient } from 'redis';
 let redisClient: ReturnType<typeof createClient> | null = null;
 const getRedis = async () => {
     if (!redisClient) {
-        redisClient = createClient({ url: process.env.KV_URL });
+        redisClient = createClient({ url: process.env.REDIS_URL });
         await redisClient.connect();
     }
     return redisClient;
@@ -73,12 +73,12 @@ export async function DELETE(request: Request) {
         const redis = await getRedis();
         const rawData = await redis.get('trackedProducts');
         let products: any[] = rawData ? JSON.parse(rawData) : [];
-        
+
         const originalLength = products.length;
         products = products.filter((p: any) => p.id !== id);
 
         if (products.length === originalLength) {
-             return NextResponse.json({ error: "Product not found" }, { status: 404 });
+            return NextResponse.json({ error: "Product not found" }, { status: 404 });
         }
 
         await redis.set('trackedProducts', JSON.stringify(products));
