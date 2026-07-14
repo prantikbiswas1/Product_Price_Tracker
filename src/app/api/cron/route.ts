@@ -1,11 +1,24 @@
 import { NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
+import { createClient } from 'redis';
 import { scrapeFlipkartPrice } from '@/lib/scraper';
+
+// Connect to standard Redis!
+let redisClient: ReturnType<typeof createClient> | null = null;
+const getRedis = async () => {
+    if (!redisClient) {
+        redisClient = createClient({ url: process.env.KV_URL });
+        await redisClient.connect();
+    }
+    return redisClient;
+};
 
 export async function GET(request: Request) {
     try {
-        // 1. Read the database from Vercel KV
-        let trackedProducts: any[] = (await kv.get('trackedProducts')) || [];
+        const redis = await getRedis();
+        
+        // 1. Read the database from Redis (we must parse JSON manually with this package)
+        const rawData = await redis.get('trackedProducts');
+        let trackedProducts: any[] = rawData ? JSON.parse(rawData) : [];
 
         if (trackedProducts.length === 0) {
             return NextResponse.json({ message: "No products in database." });
@@ -78,12 +91,12 @@ ${filterText}
             }
         }
 
-        // 5. Save back to Vercel KV
+        // 5. Save back to Redis (must turn back into JSON string)
         if (databaseNeedsSaving) {
-            await kv.set('trackedProducts', trackedProducts);
+            await redis.set('trackedProducts', JSON.stringify(trackedProducts));
         }
 
-        return NextResponse.json({ message: "Cron job finished, messages sent, and KV database updated!" });
+        return NextResponse.json({ message: "Cron job finished, messages sent, and Redis database updated!" });
 
     } catch (error) {
         console.error(error);
