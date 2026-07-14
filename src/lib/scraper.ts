@@ -3,8 +3,10 @@ import * as cheerio from 'cheerio';
 
 export async function scrapeFlipkartPrice(url: string) {
     try {
-        // 1. We must pretend to be a real browser, otherwise Flipkart will block us as a bot!
-        const { data } = await axios.get(url, {
+        // We route the request through a free proxy (allorigins) to hide Vercel's datacenter IP!
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        
+        const { data } = await axios.get(proxyUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -32,8 +34,9 @@ export async function scrapeFlipkartPrice(url: string) {
 
         return priceNumber;
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Scraping failed for URL:", url);
+        console.error("Exact Reason:", error.message);
         return null; // Return null if it fails so we don't accidentally trigger a notification
     }
 }
